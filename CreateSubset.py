@@ -41,10 +41,10 @@ def main():
   eduskuntatalo = [60.172538, 24.9333456]
   rautatietori = [60.171267, 24.944136]
   center = eduskuntatalo
-  (w, h) = meters_to_latlong_approx(150.0, 150.0)
+  (w, h) = meters_to_latlong_approx(700.0, 700.0)
   print "w: {}, h: {}".format(w, h)
   (subset_images, subset_metadata) = get_bb_images('./' + input_folder + '/', image_paths, metadata_paths, center, w, h)
-  copy_images('./' + input_folder + '/', './' + output_folder + '/', subset_images, subset_metadata)
+  utilities.copy_images('./' + input_folder + '/', './' + output_folder + '/', subset_images, subset_metadata)
   
 if __name__ == '__main__':
   main()

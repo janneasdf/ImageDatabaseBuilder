@@ -8,103 +8,10 @@ import sklearn
 from sklearn.metrics.pairwise import cosine_similarity
 
 import Utilities
+from Image import Image
 
 import os
 import sys
-
-class Image:
-  image_path = None
-  metadata = None
-  features = []
-  tags = []
-  gps = []
-  date = None
-  
-  def __init__(self, image_path, metadata_path):
-    self.image_path = image_path
-    self.load_metadata(metadata_path)
-    
-  def load_metadata(self, metadata_path):
-    with open(metadata_path, 'r') as f:
-      self.metadata = json.load(f)
-    self.tags = self.metadata['tags']
-    gps = self.metadata['gps']
-    self.gps = [float(gps[0]), float(gps[1])]
-    date_string = self.metadata['datetaken']
-    from dateutil import parser
-    from datetime import datetime
-    self.date = parser.parse(date_string)
-
-def test(images, folder):
-  n_images = len(images)
-  n_codes = 500
-  # Extract features from images
-  features = []
-  print "Extracting image features for {} images...".format(n_images)
-  for image in images:
-    img = cv2.imread(image.image_path, cv2.IMREAD_COLOR)
-    surf = cv2.SURF(400)
-    kp, des = surf.detectAndCompute(img, None)
-    image.des = [np.array(d) for d in des]
-    features.extend(des[:1000])
-  # Create the codebook
-  print "Creating codebook of size {} from {} features...".format(n_codes, len(features))
-  random.shuffle(features)
-  features = np.array(features)
-  codebook = features[:n_codes]
-  for image in images:
-    hist = np.zeros(n_codes)
-    for des in image.des:
-      min_index = 0
-      min_dist = np.linalg.norm(codebook[0] - des)
-      for i in range(1, n_codes):
-        dist = np.linalg.norm(codebook[i] - des)
-        if dist < min_dist:
-          min_index = i
-          min_dist = dist
-      threshold = 100000.0 #
-      if min_dist < threshold:
-        hist[min_index] += 1.0
-      else:
-        print "threshold miss"
-    image.hist = hist / np.linalg.norm(hist, 2)      # todo mieti onko jarkeva
-    #print image.hist
-  # Image distances
-  print "Clustering images..."
-  feature_array = np.array([image.hist for image in images])
-  
-  from sklearn.cluster import KMeans
-  ms = KMeans(n_clusters = n_images / 5)
-  labels = ms.fit_predict(feature_array)
-  #from sklearn.cluster import MeanShift
-  #ms = MeanShift()
-  #labels = ms.fit_predict(feature_array)
-  clusters = {}
-  for l in np.unique(labels):
-    clusters[l] = []
-  for i in range(len(labels)):
-    clusters[labels[i]].append(i)
-  for c in clusters:
-    print "Images in cluster:"
-    for index in clusters[c]:
-      image = images[index]
-      print image.image_path
-  # Save clusters for easy viewing
-  base_output_folder = './Clusters/' + folder + '/'
-  print "Saving clusters to {}".format(base_output_folder)
-  for c in clusters:
-    input_folder = Utilities.get_folder(images[clusters[c][0]].image_path)
-    output_folder = base_output_folder + '{}/'.format(c)
-    img_paths = []
-    md_paths = []
-    for index in clusters[c]:
-      image = images[index]
-      filename = Utilities.get_filename(image.image_path).split('.')[0] # get rid of folder and extension
-      img_paths.append(filename + '.jpg')
-      md_paths.append(filename + '.txt')
-      print filename
-    print "Copying cluster {} files from {} to {}".format(c, input_folder, output_folder)
-    Utilities.copy_images(input_folder, output_folder, img_paths, md_paths)
   
 def create_visual_codebook(images, n_codebook, n_maxfeatures, n_maxdescriptors):
   descriptors = []
@@ -133,6 +40,9 @@ def create_visual_codebook(images, n_codebook, n_maxfeatures, n_maxdescriptors):
     descriptors = descriptors[:n_maxdescriptors]
   
   print "Clustering {} descriptors into codebook of size {}".format(len(descriptors), n_codebook)
+  if n_codebook > len(descriptors) / 5:
+    n_codebook = len(descriptors) / 5
+    print "Changing n_codebook to {} ({} descriptors)".format(n_codebook, len(descriptors))
   from sklearn.cluster import MiniBatchKMeans
   mbk = MiniBatchKMeans(init='k-means++', n_clusters=n_codebook, n_init=3, max_iter=50, max_no_improvement=3, verbose=0, compute_labels=False) # batch size?
   mbk.fit(descriptors)
@@ -272,21 +182,48 @@ def save_clusters(images, labels, folder):
     Utilities.copy_images(input_folder, output_folder, img_paths, md_paths)
 
 # Plots nearest neighbors visually and then by tags and then together
-def plot_similarities(image_index, images, n_nearest, visual_tfidf, tags_tfidf, gpses):
-  def plot_sims(similarities):
+def plot_similarities(image_index, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses):
+  def plot_sims(first_title, similarities):
     image_similarities = zip(similarities[image_index], range(similarities.shape[1]))
     nearest_pairs = sorted(image_similarities, key=lambda p: p[0], reverse=True)
     nearest_pairs = nearest_pairs[:n_nearest]
     nearest_indices = [pair[1] for pair in nearest_pairs]
     nearest_images = [images[i] for i in [pair[1] for pair in nearest_pairs]]
     nearest_sims = [pair[0] for pair in nearest_pairs]
-    Utilities.plot_image_similarities(nearest_images, nearest_sims)
+    Utilities.plot_image_similarities(first_title, nearest_images, nearest_sims)
   # Plot by similarity of visual features
   similarities = cosine_similarity(visual_tfidf)
-  plot_sims(similarities)  
+  #plot_sims('', similarities)  
   # Plot by similarity of tags
   similarities = cosine_similarity(tags_tfidf)
-  #plot_sims(similarities)  
+  plot_sims(' '.join(images[image_index].tags), similarities)  
+  # Plot by similarity of extended_tags
+  similarities = cosine_similarity(ext_tags_tfidf)
+  plot_sims(' '.join(images[image_index].extended_tags), similarities)  
+    
+def compute_tag_tfidf(images, use_extended_tags):
+  # Create tag vocabulary
+  print "Creating tag vocabulary"
+  vocabulary = []
+  tags = []
+  tag_type = ['tags', 'extended_tags'][use_extended_tags]
+  for image in images:
+    for tag in getattr(image, tag_type):
+      if tag not in vocabulary:
+        vocabulary.append(tag)
+    tags.append(' '.join(image.tags))
+  
+  # Find time-specific tags and remove them from vocabulary/tags
+  #time_tags = find_time_correlated_tags(images)
+  
+  # Create TF-IDF features from each image's tags
+  print "Computing tf-idf tag features for images"
+  from sklearn.feature_extraction.text import TfidfVectorizer
+  tfidf_vectorizer = TfidfVectorizer()
+  tags_tfidf = tfidf_vectorizer.fit_transform(tags)
+  #print "tfidf matrix shape:", tags_tfidf.shape
+  #print "vocab size: {}, tfidf size: {}".format(len(vocabulary), tags_tfidf.shape[1])
+  return tags_tfidf
     
 def cluster_by_tags_and_gps(images, folder):
   #images = images[:1000]
@@ -302,7 +239,7 @@ def cluster_by_tags_and_gps(images, folder):
     # Create visual codebook
     codebook = Utilities.load_codebook(folder, n_codebook)
     if codebook == None:
-      n_maxdescriptors = None
+      n_maxdescriptors = 50000
       n_maxfeatures = 1000
       n_images = len(images)
       print "Creating visual codebook"
@@ -311,31 +248,12 @@ def cluster_by_tags_and_gps(images, folder):
     visual_tfidf = generate_histograms(images, codebook)
     Utilities.save_features(folder, visual_tfidf)
   
-  # Create tag vocabulary
-  print "Creating tag vocabulary"
-  vocabulary = []
-  tags = []
-  for image in images:
-    #for tag in image.metadata['tags']:
-    for tag in image.tags:
-      if tag not in vocabulary:
-        vocabulary.append(tag)
-    tags.append(' '.join(image.tags))
-    
-  # Find time-specific tags
-  #time_tags = find_time_correlated_tags(images)
-  
-  # Create TF-IDF features from each image's tags
-  print "Computing tf-idf tag features for images"
-  from sklearn.feature_extraction.text import TfidfVectorizer
-  tfidf_vectorizer = TfidfVectorizer()
-  tags_tfidf = tfidf_vectorizer.fit_transform(tags)
-  print "tfidf matrix shape:", tags_tfidf.shape
-  print "vocab size: {}, tfidf size: {}".format(len(vocabulary), tags_tfidf.shape[1])
+  tags_tfidf = compute_tag_tfidf(images, False)
+  ext_tags_tfidf = compute_tag_tfidf(images, True)
   
   # Combine visual and tag features
   print "Combining features"
-  features = combine_features(visual_tfidf, tags_tfidf)
+  features = combine_features(visual_tfidf, tags_tfidf) # todo tsekkaa onko tags_tfidf ees toimiva
   
   tags_tfidf = tags_tfidf.toarray()
   gpses = np.array([image.gps for image in images])
@@ -357,18 +275,15 @@ def cluster_by_tags_and_gps(images, folder):
     elif '15991895575_3705685e6c_z' in img.image_path:  # helsingin tuomiokirkko
       tuomiokirkko = i
   if eduskuntatalo != None:
-    plot_similarities(eduskuntatalo, images, n_nearest, visual_tfidf, tags_tfidf, gpses)
+    plot_similarities(eduskuntatalo, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses)
   if tuomiokirkko != None:
-    pass #plot_similarities(tuomiokirkko, images, n_nearest, visual_tfidf, tags_tfidf, gpses)
+    plot_similarities(tuomiokirkko, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses)
   
   #code.interact(local=locals())
 
 def main():
   folder = Utilities.get_folder_argument()
   base_folder = '../' + folder + '/'
-  
-  # Load features
-  #all_features = load_features(base_folder)
   
   # Read metadata from files
   (image_paths, metadata_paths) = Utilities.get_image_paths(base_folder)
@@ -377,7 +292,6 @@ def main():
     images.append(Image(image_paths[i], metadata_paths[i]))
   
   # Start the main algorithm
-  #test(images, folder)
   cluster_by_tags_and_gps(images, folder)
 
 if __name__ == '__main__':
