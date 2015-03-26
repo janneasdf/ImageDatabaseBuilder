@@ -40,9 +40,9 @@ def create_visual_codebook(images, n_codebook, n_maxfeatures, n_maxdescriptors):
     descriptors = descriptors[:n_maxdescriptors]
   
   print "Clustering {} descriptors into codebook of size {}".format(len(descriptors), n_codebook)
-  if n_codebook > len(descriptors) / 5:
-    n_codebook = len(descriptors) / 5
-    print "Changing n_codebook to {} ({} descriptors)".format(n_codebook, len(descriptors))
+  #if n_codebook > len(descriptors) / 5:
+  #  n_codebook = len(descriptors) / 5
+  #  print "Changing n_codebook to {} ({} descriptors)".format(n_codebook, len(descriptors))
   from sklearn.cluster import MiniBatchKMeans
   mbk = MiniBatchKMeans(init='k-means++', n_clusters=n_codebook, n_init=3, max_iter=50, max_no_improvement=3, verbose=0, compute_labels=False) # batch size?
   mbk.fit(descriptors)
@@ -103,6 +103,19 @@ def find_time_correlated_tags(images):
     for j in range(hourly_tfidf.shape[0]):
       if hourly_tfidf[i, j] == hourly_max:
         print "max:", vocabulary[j]
+  
+def geo_dist_approx(latlong1, latlong2):
+  delta = (latlong1[0] - latlong2[0], latlong1[1] - latlong2[1])
+  delta = (abs(delta[0]), abs(delta[1]))
+  mx, my = Utilities.latlong_to_meters_approx(delta[0], delta[1])
+  dist = math.sqrt(mx*mx, my*my)
+  print "Dist:",dist
+  return dist
+  
+def similarity(vis1, tag1, gps1, vis2, tag2, gps2):
+  s_vis = vis1.dot(vis2)
+  s_tag = tag1.dot(tag2)
+  geo_dist = geo_distance(gps1, gps2)
   
 # Not sure if this can be used
 def compute_similarity(visual_tfidf, tags_tfidf, gpses, images):

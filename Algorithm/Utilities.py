@@ -69,11 +69,13 @@ def load_codebook(name, n_codebook):
     return None
   print "Loading codebook", codebook_name
   return np.load(filename)
-  
 
 ### Algorithmic utilities ###
 def meters_to_latlong_approx(mx, my):
   return (mx / 111413.93794495543, my / 55631.4933990071)
+
+def latlong_to_meters_approx(lat, long):
+  return (lat * 111413.93794495543, long * 55631.4933990071)
 
 ### File copying etc ###
 def copy_images(input_folder, output_folder, img_paths, md_paths):
@@ -81,7 +83,8 @@ def copy_images(input_folder, output_folder, img_paths, md_paths):
     print "input folder can't be same as output folder!"
     return
   
-  shutil.rmtree(output_folder)  # delete folder if it already exists
+  if os.path.exists(output_folder):
+    shutil.rmtree(output_folder)  # delete folder if it already exists
   if not os.path.exists(output_folder):
     os.makedirs(output_folder)
   #print "Copying {} photos".format(len(img_paths))
