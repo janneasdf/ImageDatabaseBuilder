@@ -9,12 +9,14 @@ import pylab
 import code
 
 ### Plotting ###
-def plot_image_similarities(first_title, nearest, similarities):
+def plot_image_similarities(plot_title, first_title, nearest, similarities):
   fig = pylab.figure()
   fig.clear()
+  #pylab.title(plot_title)
   
   I = pylab.imread(nearest[0].image_path)
-  fig.add_subplot(6,5,3)
+  #fig.add_subplot(6,5,3)
+  fig.add_subplot(4,3,2)
   pylab.title(first_title)
   pylab.axis('off')
   pylab.imshow(I)
@@ -22,7 +24,8 @@ def plot_image_similarities(first_title, nearest, similarities):
   for i in range(len(nearest)):
     image = nearest[i]
     I = pylab.imread(image.image_path)
-    fig.add_subplot(6,5,i+6)
+    #fig.add_subplot(6,5,i+6)
+    fig.add_subplot(4,3,i+4)
     pylab.title(str(similarities[i])[:6])
     pylab.axis('off')
     pylab.imshow(I)

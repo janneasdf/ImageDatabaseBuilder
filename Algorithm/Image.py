@@ -35,7 +35,7 @@ class Image:
         if word not in words:
           words.append(word)
       return words
-    extended = self.tags
+    extended = [tag for tag in self.tags]
     extended = add_tags_from_text(extended, self.metadata['title'])
     extended = add_tags_from_text(extended, self.metadata['description'])
     self.extended_tags = extended

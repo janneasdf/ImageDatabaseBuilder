@@ -1,3 +1,6 @@
+#!/usr/bin/python
+#-*- coding: utf-8 -*-
+
 import numpy as np
 import math
 import random
@@ -196,23 +199,23 @@ def save_clusters(images, labels, folder):
 
 # Plots nearest neighbors visually and then by tags and then together
 def plot_similarities(image_index, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses):
-  def plot_sims(first_title, similarities):
+  def plot_sims(plot_title, first_title, similarities):
     image_similarities = zip(similarities[image_index], range(similarities.shape[1]))
     nearest_pairs = sorted(image_similarities, key=lambda p: p[0], reverse=True)
     nearest_pairs = nearest_pairs[:n_nearest]
     nearest_indices = [pair[1] for pair in nearest_pairs]
     nearest_images = [images[i] for i in [pair[1] for pair in nearest_pairs]]
     nearest_sims = [pair[0] for pair in nearest_pairs]
-    Utilities.plot_image_similarities(first_title, nearest_images, nearest_sims)
+    Utilities.plot_image_similarities(plot_title, first_title, nearest_images, nearest_sims)
   # Plot by similarity of visual features
   similarities = cosine_similarity(visual_tfidf)
-  #plot_sims('', similarities)  
+  plot_sims('Visuaalisten piirteiden samanlaisuus', '', similarities)  
   # Plot by similarity of tags
   similarities = cosine_similarity(tags_tfidf)
-  plot_sims(' '.join(images[image_index].tags), similarities)  
+  plot_sims('Avainsanojen samanlaisuus', ' '.join(images[image_index].tags), similarities)  
   # Plot by similarity of extended_tags
   similarities = cosine_similarity(ext_tags_tfidf)
-  plot_sims(' '.join(images[image_index].extended_tags), similarities)  
+  plot_sims('Laajennettujen avainsanojen samanlaisuus', ' '.join(images[image_index].extended_tags), similarities)  
     
 def compute_tag_tfidf(images, use_extended_tags):
   # Create tag vocabulary
@@ -274,26 +277,57 @@ def cluster_by_tags_and_gps(images, folder):
   cluster_similarity(similarity_matrix)
   
   print "Clustering views"
-  clusters = find_view_clusters(features)
+  #clusters = find_view_clusters(features)
   
-  save_clusters(images, clusters, folder + '+' + str(n_codebook))
+  #save_clusters(images, clusters, folder + '+' + str(n_codebook))
   
   # Plot similarities and images (really ugly code)
   eduskuntatalo = None
   tuomiokirkko = None
-  n_nearest = 20 # how many nearest hits to show
+  n_nearest = 9 # how many nearest hits to show
   for img, i in zip(images, range(len(images))):
     if '15791343418_b8c738bf32_z' in img.image_path:  # image of eduskuntatalo
       eduskuntatalo = i
     elif '15991895575_3705685e6c_z' in img.image_path:  # helsingin tuomiokirkko
       tuomiokirkko = i
   if eduskuntatalo != None:
-    plot_similarities(eduskuntatalo, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses)
+    pass #plot_similarities(eduskuntatalo, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses)
   if tuomiokirkko != None:
-    plot_similarities(tuomiokirkko, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses)
+    pass #plot_similarities(tuomiokirkko, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses)
   
-  #code.interact(local=locals())
+  code.interact(local=locals())
 
+def plot_gps_distribution(images):
+  gpses = [image.gps for image in images]
+  lat_h = [gps[0] for gps in gpses]
+  lon_h = [gps[1] for gps in gpses]
+  lat150m = []
+  lon150m = []
+  center = [60.172538, 24.9333456]
+  w, h = Utilities.meters_to_latlong_approx(150.0, 150.0)
+  for image in images:
+    gps = image.gps
+    if abs(center[0] - gps[0]) < w and abs(center[1] - gps[1]) < h:
+      lat150m.append(gps[0])
+      lon150m.append(gps[1])
+  
+  import pylab as pl
+  fig = pl.figure()
+  ax = fig.add_subplot(111)
+  code.interact(local=locals())
+  ax.scatter(lat_h, lon_h, c='b', label=u'Kaikki kuvat')
+  ax.scatter(lat150m, lon150m, c='r', label=u'Kuvat noin 150m säteellä Eduskuntatalosta')
+  
+  #pl.xlim(min(lat), max(lat))
+  #pl.ylim(min(lon), max(lon))
+  #pl.xlim(59.977005 - 0.05, 60.2891 + 0.05)
+  #pl.ylim(24.80288 - 0.05, 25.3125 + 0.05)
+  pl.xlabel('Leveyspiiri')
+  pl.ylabel('Pituuspiiri')
+  pl.show()
+  #print min(lat), max(lat)
+  #print min(lon), max(lon)
+  
 def main():
   folder = Utilities.get_folder_argument()
   base_folder = '../' + folder + '/'
@@ -303,6 +337,9 @@ def main():
   images = []
   for i in range(len(image_paths)):
     images.append(Image(image_paths[i], metadata_paths[i]))
+  
+  # Plot distribution (GPS)
+  #plot_gps_distribution(images)
   
   # Start the main algorithm
   cluster_by_tags_and_gps(images, folder)

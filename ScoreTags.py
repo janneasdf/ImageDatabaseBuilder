@@ -21,12 +21,24 @@ class ImageInfo:
       self.rating = -1
     with open(filename + '.txt', 'r') as f:
       md = json.load(f)
+      self.metadata = md
       self.tags = md['tags']
-      '''title = md['title'].encode('utf-8').translate(string.maketrans('',''), string.punctuation)
-      title_tags = title.split(' ')
-      if len(title_tags) != 0:
-        self.tags.extend(title_tags)'''
       self.tags = [tag.lower() for tag in self.tags if len(tag) > 0]
+      #self.load_extended_tags()
+      
+  def load_extended_tags(self):
+    self.tags = [tag.lower() for tag in self.metadata['tags']]
+    # Extended tags = tags + title + description
+    def add_tags_from_text(words, text):
+      for word in text.split(' '):
+        word = word.replace(' ', '').lower()
+        if len(word) == 0:
+          continue
+        if word not in words:
+          words.append(word)
+      return words
+    self.tags = add_tags_from_text(self.tags, self.metadata['title'])
+    self.tags = add_tags_from_text(self.tags, self.metadata['description'])
 
 def get_images_in_folder(folder):
     all_file_names = [f for f in listdir(folder) if isfile(join(folder, f))]
@@ -88,8 +100,8 @@ def main(training_folder, classify_folder, norm, save_subsets):
   # HISTOGRAM PLOTTING
   all_tags.sort(key=lambda tag: good_hist[tag] + bad_hist[tag], reverse=True)
   all_training_tags = all_tags
-  all_tags = all_tags[:200]
-  show_tags = False
+  all_tags = all_tags[:20]
+  show_tags = True
   fig = pl.figure()
   good_data = [good_hist[tag] for tag in all_tags]
   bad_data = [-bad_hist[tag] for tag in all_tags]
@@ -119,7 +131,7 @@ def main(training_folder, classify_folder, norm, save_subsets):
   
   ax.legend((u'Hyödylliset kuvat', u'Hyödyttömät kuvat'), 'lower right')
     
-  pl.show()
+  #pl.show()
   
   # Divide images to training and test images
   import numpy as np
@@ -131,9 +143,50 @@ def main(training_folder, classify_folder, norm, save_subsets):
         if vocabulary[j] in images[i].tags:
           X[(i, j)] = 1
     return X
+  def leave_one_out(training_images, test_image, vocab):
+    X_training = occurrance_matrix(training_images, vocab)
+    Y_training = np.array([img.rating for img in training_images])
+    X_testing = occurrance_matrix([test_image], vocab)
+    from sklearn.naive_bayes import BernoulliNB
+    classifier = BernoulliNB()
+    classifier.fit(X_training, Y_training)
+    classifier.classes_ = np.array([-1,1])
+    estimates = classifier.predict(X_testing)
+    if estimates[0] == test_image.rating:
+      return 1.0
+    else:
+      return 0.0
+    
+  repetitions_per_n = 100
+  clf_rates = []
+  training_ns = range(10, len(rated_images), 2)
+  for n_training in training_ns:
+    correct = 0.0
+    print "training: {}".format(n_training)
+    for repetition in range(repetitions_per_n):
+      clf_images = [image for image in rated_images]
+      random.shuffle(clf_images)
+      correct += leave_one_out(clf_images[:n_training], clf_images[n_training], all_training_tags)
+    clf_rates.append(correct / repetitions_per_n)
+  print clf_rates
+  good_imgs = 0
+  for image in rated_images:
+    if image.rating == 1:
+      good_imgs += 1
+  a_priori = float(good_imgs) / len(rated_images)
+  pl.figure()
+  pl.clf()
+  pl.plot(training_ns, clf_rates, 'b-', training_ns, [0.5] * len(training_ns), 'r-', training_ns, [a_priori] * len(training_ns), 'g-')
+  pl.legend(['Naiivi Bayes-luokitin', 'Satunnaisluokitin', 'A priori -luokitin'], loc='lower right')
+  pl.xlabel(u'Opetuskuvien määrä')
+  pl.ylabel(u'Luokittelun onnistumistodennäköisyys')
+  pl.ylim(0.0, 1.0)
+  pl.xlim(training_ns[0], training_ns[-1])
+  pl.show()
+  
   rand_subset = range(len(rated_images))
   random.shuffle(rand_subset)
-  n_training = len(rated_images) / 4 #len(rated_images) - 40
+  #n_training = len(rated_images) / 4 #len(rated_images) - 40
   print "Training data size: {}, Testing data size: {}".format(n_training, len(rated_images)-n_training)
   training_images = [rated_images[i] for i in rand_subset[:n_training]]
   test_images = [rated_images[i] for i in rand_subset[n_training:]]
@@ -202,11 +255,7 @@ def main(training_folder, classify_folder, norm, save_subsets):
     utilities.copy_images(copy_from_folder, copy_to_base_folder + 'good_images/', good_img_paths, good_md_paths)
     utilities.copy_images(copy_from_folder, copy_to_base_folder + 'bad_images/', bad_img_paths, bad_md_paths)
   
-  # Make histogram of most popular tags in good/bad images
   
-  
-  
-
 if __name__ == '__main__':
   parser = argparse.ArgumentParser(description='This script analyses tag usefulness')
   parser.add_argument('-f1', '--training_images', help='Folder name of training (rated) images', required=True)
