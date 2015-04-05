@@ -11,6 +11,7 @@ import sklearn
 from sklearn.metrics.pairwise import cosine_similarity
 
 import Utilities
+import ClusteringHelpers
 from Image import Image
 
 import os
@@ -83,140 +84,6 @@ def generate_histograms(images, codebook):
   visual_features = visual_tfidf.fit_transform(visual_features)
   return visual_features
   
-def find_time_correlated_tags(images):
-  # todo: this should work so that it is done before vocabulary thing
-  hourly_tag_hists = [[0] * len(vocabulary)] * 24
-  monthly_tag_hists = [[0] * len(vocabulary)] * 12
-  for image in images:
-    hour = image.date.hour
-    month = image.date.month - 1  # 0-indexing
-    for tag, i in zip(vocabulary, range(len(vocabulary))):
-      if tag in image.tags:
-        monthly_tag_hists[month][i] += 1
-        hourly_tag_hists[hour][i] += 1
-  from sklearn.feature_extraction.text import TfidfTransformer
-  hourly_tag_hists = np.array(hourly_tag_hists).transpose()
-  monthly_tag_hists = np.array(monthly_tag_hists).transpose()
-  hourly_tfidf = TfidfTransformer().fit_transform(hourly_tag_hists)
-  monthly_tfidf = TfidfTransformer().fit_transform(monthly_tag_hists)
-  for i in range(24):
-    hourly_max = max(hourly_tfidf[i])
-    import code
-    code.interact(local=locals())
-    for j in range(hourly_tfidf.shape[0]):
-      if hourly_tfidf[i, j] == hourly_max:
-        print "max:", vocabulary[j]
-  
-def geo_dist_approx(latlong1, latlong2):
-  delta = (latlong1[0] - latlong2[0], latlong1[1] - latlong2[1])
-  delta = (abs(delta[0]), abs(delta[1]))
-  mx, my = Utilities.latlong_to_meters_approx(delta[0], delta[1])
-  dist = math.sqrt(mx*mx, my*my)
-  print "Dist:",dist
-  return dist
-  
-def similarity(vis1, tag1, gps1, vis2, tag2, gps2):
-  s_vis = vis1.dot(vis2)
-  s_tag = tag1.dot(tag2)
-  geo_dist = geo_distance(gps1, gps2)
-  
-# Not sure if this can be used
-def compute_similarity(visual_tfidf, tags_tfidf, gpses, images):
-  n = len(images)
-  S = np.zeros((n, n))
-  print "Computing similarity"
-  for i in range(n):
-    for j in range(i, n):
-      s_vis = visual_tfidf[i].dot(visual_tfidf[j])  # todo euclidean or not?
-      s_tag = tags_tfidf[i].dot(tags_tfidf[j])
-      s_gps = 0.0
-      sim = s_vis + s_tag + s_gps
-      S[i, j] = sim
-      S[j, i] = sim
-    
-  return S
-
-def cluster_similarity(S):
-  pass
-  
-# Combine visual and tag features
-def combine_features(visual_tfidf, tag_tfidf):
-  import scipy.sparse
-  from sklearn.preprocessing import normalize
-  print visual_tfidf.shape
-  print tag_tfidf.shape
-  features = scipy.sparse.hstack((visual_tfidf, tag_tfidf))
-  features = normalize(features, axis=1, norm='l2')
-  return features
-
-# This function searches for clusters
-def find_view_clusters(features):
-  features = features.toarray()
-  n = features.shape[0]
-  from sklearn.cluster import MeanShift, DBSCAN, KMeans, SpectralClustering
-  ms = MeanShift()
-  labels = ms.fit_predict(features)
-  print "MeanShift Labels:", labels[:10]
-  db = DBSCAN()
-  labels = db.fit_predict(features)
-  print "DBSCAN Labels:", labels[:10]
-  sc = SpectralClustering()
-  labels = sc.fit_predict(features)
-  print "Spectral Labels:", labels
-  km = KMeans(n_clusters=n/5)
-  labels = km.fit_predict(features)
-  print "KMeans Labels:", labels
-  
-  #code.interact()
-  
-  return labels
-
-def save_clusters(images, labels, folder):
-  clusters = {}
-  for l in np.unique(labels):
-    clusters[l] = []
-  for i in range(len(labels)):
-    clusters[labels[i]].append(i)
-  for c in clusters:
-    for index in clusters[c]:
-      image = images[index]
-  # Save clusters for easy viewing
-  base_output_folder = './Clusters/' + folder + '/'
-  print "Saving clusters to {}".format(base_output_folder)
-  for c in clusters:
-    input_folder = Utilities.get_folder(images[clusters[c][0]].image_path)
-    output_folder = base_output_folder + '{}/'.format(c)
-    img_paths = []
-    md_paths = []
-    for index in clusters[c]:
-      image = images[index]
-      filename = Utilities.get_filename(image.image_path).split('.')[0] # get rid of folder and extension
-      img_paths.append(filename + '.jpg')
-      md_paths.append(filename + '.txt')
-      #print filename
-    #print "Copying cluster {} files from {} to {}".format(c, input_folder, output_folder)
-    Utilities.copy_images(input_folder, output_folder, img_paths, md_paths)
-
-# Plots nearest neighbors visually and then by tags and then together
-def plot_similarities(image_index, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses):
-  def plot_sims(plot_title, first_title, similarities):
-    image_similarities = zip(similarities[image_index], range(similarities.shape[1]))
-    nearest_pairs = sorted(image_similarities, key=lambda p: p[0], reverse=True)
-    nearest_pairs = nearest_pairs[:n_nearest]
-    nearest_indices = [pair[1] for pair in nearest_pairs]
-    nearest_images = [images[i] for i in [pair[1] for pair in nearest_pairs]]
-    nearest_sims = [pair[0] for pair in nearest_pairs]
-    Utilities.plot_image_similarities(plot_title, first_title, nearest_images, nearest_sims)
-  # Plot by similarity of visual features
-  similarities = cosine_similarity(visual_tfidf)
-  plot_sims('Visuaalisten piirteiden samanlaisuus', '', similarities)  
-  # Plot by similarity of tags
-  similarities = cosine_similarity(tags_tfidf)
-  plot_sims('Avainsanojen samanlaisuus', ' '.join(images[image_index].tags), similarities)  
-  # Plot by similarity of extended_tags
-  similarities = cosine_similarity(ext_tags_tfidf)
-  plot_sims('Laajennettujen avainsanojen samanlaisuus', ' '.join(images[image_index].extended_tags), similarities)  
-    
 def compute_tag_tfidf(images, use_extended_tags):
   # Create tag vocabulary
   print "Creating tag vocabulary"
@@ -241,6 +108,90 @@ def compute_tag_tfidf(images, use_extended_tags):
   #print "vocab size: {}, tfidf size: {}".format(len(vocabulary), tags_tfidf.shape[1])
   return tags_tfidf
     
+# Combine visual and tag features
+def combine_features(visual_tfidf, tag_tfidf):
+  import scipy.sparse
+  from sklearn.preprocessing import normalize
+  print visual_tfidf.shape
+  print tag_tfidf.shape
+  features = scipy.sparse.hstack((visual_tfidf, tag_tfidf))
+  features = normalize(features, axis=1, norm='l2')
+  return features
+
+# This function searches for clusters
+def find_view_clusters(features):
+  n = features.shape[0]
+  from sklearn.cluster import MeanShift, DBSCAN, KMeans, SpectralClustering
+  ms = MeanShift(bandwidth=0.95)
+  labels = ms.fit_predict(features)
+  print "MeanShift Labels, unique, n:", labels, len(np.unique(labels)), n
+  db = DBSCAN(eps=1.05)
+  #labels = db.fit_predict(features)
+  print "DBSCAN Labels, unique, n:", labels, len(np.unique(labels)), n
+  #sc = SpectralClustering()
+  #labels = sc.fit_predict(features)
+  #print "Spectral Labels:", labels
+  #km = KMeans(n_clusters=n/5)
+  #labels = km.fit_predict(features)
+  #print "KMeans Labels:", labels
+  
+  return labels
+
+def geo_dist_approx(latlong1, latlong2):
+  delta = (latlong1[0] - latlong2[0], latlong1[1] - latlong2[1])
+  delta = (abs(delta[0]), abs(delta[1]))
+  mx, my = Utilities.latlong_to_meters_approx(delta[0], delta[1])
+  dist = math.sqrt(mx*mx + my*my)
+  #print "Dist:",dist
+  return dist
+
+def similarity(vis1, tag1, gps1, vis2, tag2, gps2):
+  s_vis = vis1.dot(vis2)
+  s_tag = tag1.dot(tag2)
+  geo_dist = geo_distance(gps1, gps2)
+
+# Not sure if this can be used
+def compute_similarity(visual_tfidf, tags_tfidf, gpses, images):
+  n = len(images)
+  S = np.zeros((n, n))
+  
+  # make distance matrix
+  for i in range(n):
+    for j in range(n):
+      if i == j:
+        S[i, j] = 0.0 # same picture is identical
+        continue
+      d = 1.0 / (1.0 + visual_tfidf[i].dot(visual_tfidf[j]))
+      if images[i].metadata['owner'] == images[j].metadata['owner']:
+        if abs((images[i].date - images[j].date).total_seconds()) < 15 * 60:
+          d *= 0.5
+      if geo_dist_approx(images[i].gps, images[j].gps) > 200.0:
+        d *= 2.0
+      d = d / (1.0 + tags_tfidf[i].dot(tags_tfidf[j]))
+      S[i, j] = d
+      if '15791343418_b8c738bf32_z' in images[i].image_path and '15991895575_3705685e6c_z' in images[j].image_path:
+        print "ed & tuomiokirkko:", d
+      if '15791343418_b8c738bf32_z' in images[i].image_path and '16058603384_4b3d947b2e_z' in images[j].image_path:
+        print "ed1 & ed2:", d
+  
+  
+  return S
+
+def cluster_similarity(S):
+  from sklearn.cluster import MeanShift, DBSCAN, KMeans, SpectralClustering
+  
+  #print S
+  max_d = 0.82
+  dbs = DBSCAN(eps=max_d, metric='precomputed', min_samples=1)
+  labels = dbs.fit_predict(S)
+  print "Labels:", labels
+  print "Unique: {} of {}".format(len(np.unique(labels)), S.shape[0])
+  
+  #sp = SpectralClustering(
+  #ms = MeanShift(
+  
+  return labels
+  
 def cluster_by_tags_and_gps(images, folder):
   #images = images[:1000]
   # Shuffle images
@@ -274,12 +225,12 @@ def cluster_by_tags_and_gps(images, folder):
   tags_tfidf = tags_tfidf.toarray()
   gpses = np.array([image.gps for image in images])
   similarity_matrix = compute_similarity(visual_tfidf, tags_tfidf, gpses, images)
-  cluster_similarity(similarity_matrix)
   
   print "Clustering views"
-  #clusters = find_view_clusters(features)
-  
-  #save_clusters(images, clusters, folder + '+' + str(n_codebook))
+  #clusters = find_view_clusters(features.toarray())
+  #clusters = find_view_clusters(visual_tfidf) # no tags
+  clusters = cluster_similarity(similarity_matrix)
+  ClusteringHelpers.save_clusters(images, clusters, folder + '+' + str(n_codebook))
   
   # Plot similarities and images (really ugly code)
   eduskuntatalo = None
@@ -295,39 +246,10 @@ def cluster_by_tags_and_gps(images, folder):
   if tuomiokirkko != None:
     pass #plot_similarities(tuomiokirkko, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses)
   
-  code.interact(local=locals())
+  ClusteringHelpers.find_time_correlated_tags(images)
+  
+  #code.interact(local=locals())
 
-def plot_gps_distribution(images):
-  gpses = [image.gps for image in images]
-  lat_h = [gps[0] for gps in gpses]
-  lon_h = [gps[1] for gps in gpses]
-  lat150m = []
-  lon150m = []
-  center = [60.172538, 24.9333456]
-  w, h = Utilities.meters_to_latlong_approx(150.0, 150.0)
-  for image in images:
-    gps = image.gps
-    if abs(center[0] - gps[0]) < w and abs(center[1] - gps[1]) < h:
-      lat150m.append(gps[0])
-      lon150m.append(gps[1])
-  
-  import pylab as pl
-  fig = pl.figure()
-  ax = fig.add_subplot(111)
-  code.interact(local=locals())
-  ax.scatter(lat_h, lon_h, c='b', label=u'Kaikki kuvat')
-  ax.scatter(lat150m, lon150m, c='r', label=u'Kuvat noin 150m säteellä Eduskuntatalosta')
-  
-  #pl.xlim(min(lat), max(lat))
-  #pl.ylim(min(lon), max(lon))
-  #pl.xlim(59.977005 - 0.05, 60.2891 + 0.05)
-  #pl.ylim(24.80288 - 0.05, 25.3125 + 0.05)
-  pl.xlabel('Leveyspiiri')
-  pl.ylabel('Pituuspiiri')
-  pl.show()
-  #print min(lat), max(lat)
-  #print min(lon), max(lon)
-  
 def main():
   folder = Utilities.get_folder_argument()
   base_folder = '../' + folder + '/'
