@@ -145,10 +145,32 @@ def geo_dist_approx(latlong1, latlong2):
   #print "Dist:",dist
   return dist
 
-def similarity(vis1, tag1, gps1, vis2, tag2, gps2):
+def image_distance((image1, vis1, tag1), (image2, vis2, tag2)):
+  '''d = 1.0 / (1.0 + vis1.dot(vis2))
+  if image1.metadata['owner'] == image2.metadata['owner']:
+    if abs((image1.date - image2.date).total_seconds()) < 15 * 60:
+      d *= 0.5
+  if geo_dist_approx(image1.gps, image2.gps) > 200.0:
+    d *= 2.0
+  d = d / (1.0 + tag1.dot(tag2))'''
+  # Visual similarity
   s_vis = vis1.dot(vis2)
+  # Time taken similarity
+  s_timetaken = 0.0
+  if image1.metadata['owner'] == image2.metadata['owner']:
+    if abs((image1.date - image2.date).total_seconds()) < 15 * 60:
+      s_timetaken = 1.0
+  s_geo = 0.0
+  # Geographic similarity
+  if geo_dist_approx(image1.gps, image2.gps) < 200.0:
+    s_geo = 1.0
+  # Tag similarity
   s_tag = tag1.dot(tag2)
-  geo_dist = geo_distance(gps1, gps2)
+  
+  # Distance
+  d = 1.0 - s_vis
+  
+  return d
 
 # Not sure if this can be used
 def compute_similarity(visual_tfidf, tags_tfidf, gpses, images):
@@ -161,42 +183,44 @@ def compute_similarity(visual_tfidf, tags_tfidf, gpses, images):
       if i == j:
         S[i, j] = 0.0 # same picture is identical
         continue
-      d = 1.0 / (1.0 + visual_tfidf[i].dot(visual_tfidf[j]))
-      if images[i].metadata['owner'] == images[j].metadata['owner']:
-        if abs((images[i].date - images[j].date).total_seconds()) < 15 * 60:
-          d *= 0.5
-      if geo_dist_approx(images[i].gps, images[j].gps) > 200.0:
-        d *= 2.0
-      d = d / (1.0 + tags_tfidf[i].dot(tags_tfidf[j]))
+      d = image_distance((images[i], visual_tfidf[i], tags_tfidf[i]), (images[j], visual_tfidf[j], tags_tfidf[j]))
       S[i, j] = d
       if '15791343418_b8c738bf32_z' in images[i].image_path and '15991895575_3705685e6c_z' in images[j].image_path:
         print "ed & tuomiokirkko:", d
       if '15791343418_b8c738bf32_z' in images[i].image_path and '16058603384_4b3d947b2e_z' in images[j].image_path:
         print "ed1 & ed2:", d
   
-  
   return S
 
 def cluster_similarity(S):
   from sklearn.cluster import MeanShift, DBSCAN, KMeans, SpectralClustering
   
-  #print S
-  max_d = 0.82
-  dbs = DBSCAN(eps=max_d, metric='precomputed', min_samples=1)
+  # distance distribution
+  n = S.shape[0]
+  dists = []
+  for i in range(n):
+    for j in range(i+1, n):
+      dists.append(S[i,j])
+  ClusteringHelpers.plot_distribution(dists, u"Kuvien välisten etäisyyksien jakautuminen", u"Etäisyys", u"Frekvenssi", 100)
+  print "max d: {}, min d: {}".format(max(dists), min(dists))
+  
+  print "clustering images"
+  max_cluster_d = 0.7
+  dbs = DBSCAN(eps=max_cluster_d, metric='precomputed', min_samples=1)
   labels = dbs.fit_predict(S)
   print "Labels:", labels
   print "Unique: {} of {}".format(len(np.unique(labels)), S.shape[0])
   
-  #sp = SpectralClustering(
-  #ms = MeanShift(
+  #ac = sklearn.cluster.AgglomerativeClustering()
+  
   
   return labels
   
-def cluster_by_tags_and_gps(images, folder):
+def cluster_by_tags_and_gps(images, folder, n_codebook):
   #images = images[:1000]
   # Shuffle images
   n_images = len(images)
-  n_codebook = 10000
+  n_codebook = n_codebook
   print "n_images:", n_images, "n_codebook:", n_codebook
   #random.shuffle(images)
   
@@ -242,17 +266,18 @@ def cluster_by_tags_and_gps(images, folder):
     elif '15991895575_3705685e6c_z' in img.image_path:  # helsingin tuomiokirkko
       tuomiokirkko = i
   if eduskuntatalo != None:
-    pass #plot_similarities(eduskuntatalo, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses)
+    ClusteringHelpers.plot_similarities(eduskuntatalo, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses, similarity_matrix)
   if tuomiokirkko != None:
-    pass #plot_similarities(tuomiokirkko, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses)
+    pass #ClusteringHelpers.plot_similarities(tuomiokirkko, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses)
   
   ClusteringHelpers.find_time_correlated_tags(images)
   
   #code.interact(local=locals())
 
 def main():
-  folder = Utilities.get_folder_argument()
-  base_folder = '../' + folder + '/'
+  args = Utilities.get_clustering_arguments()
+  base_folder = '../' + args.folder_name + '/'
+  n_codebook = int(args.codebook_size)
   
   # Read metadata from files
   (image_paths, metadata_paths) = Utilities.get_image_paths(base_folder)
@@ -264,7 +289,8 @@ def main():
   #plot_gps_distribution(images)
   
   # Start the main algorithm
-  cluster_by_tags_and_gps(images, folder)
+  cluster_by_tags_and_gps(images, args.folder_name, n_codebook)
+  
 
 if __name__ == '__main__':
   main()

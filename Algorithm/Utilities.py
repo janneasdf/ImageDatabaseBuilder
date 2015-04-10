@@ -104,11 +104,12 @@ def get_filename(path): # probably doesn't work on other than Windows
 def get_folder(path):
   return path[:path.rfind('/')+1]
   
-def get_folder_argument():
+def get_clustering_arguments():
   parser = argparse.ArgumentParser(description='This script clusters images of same views')
   parser.add_argument('-f', '--folder_name', help='Image folder name', required=True)
+  parser.add_argument('-c', '--codebook_size', help='Visual codebook size', required=True)
   args = parser.parse_args()
-  return args.folder_name
+  return args
 
 def get_image_paths(folder):
     all_file_names = [f for f in listdir(folder) if isfile(join(folder, f))]
