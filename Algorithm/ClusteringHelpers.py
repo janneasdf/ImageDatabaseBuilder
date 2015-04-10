@@ -4,6 +4,7 @@ import Utilities
 import numpy as np
 import code
 import pylab as pl
+import os, shutil
 from sklearn.metrics.pairwise import cosine_similarity
 
 def plot_distribution(vals, title, xlabel, ylabel, bins):
@@ -24,6 +25,8 @@ def save_clusters(images, labels, folder):
       image = images[index]
   # Save clusters for easy viewing
   base_output_folder = './Clusters/' + folder + '/'
+  if os.path.exists(base_output_folder):
+    shutil.rmtree(base_output_folder)
   print "Saving clusters to {}".format(base_output_folder)
   for c in clusters:
     input_folder = Utilities.get_folder(images[clusters[c][0]].image_path)
