@@ -54,7 +54,7 @@ def plot_similarities(image_index, images, n_nearest, visual_tfidf, tags_tfidf, 
     Utilities.plot_image_similarities(plot_title, first_title, nearest_images, nearest_sims)
   # Plot by similarity of visual features
   similarities = cosine_similarity(visual_tfidf)
-  #plot_sims('Visuaalisten piirteiden samanlaisuus', '', similarities, True)  
+  plot_sims('Visuaalisten piirteiden samanlaisuus', '', similarities, True)  
   # Plot by similarity of tags
   similarities = cosine_similarity(tags_tfidf)
   #plot_sims('Avainsanojen samanlaisuus', ' '.join(images[image_index].tags), similarities, True)  
@@ -63,7 +63,7 @@ def plot_similarities(image_index, images, n_nearest, visual_tfidf, tags_tfidf, 
   #plot_sims('Laajennettujen avainsanojen samanlaisuus', ' '.join(images[image_index].extended_tags), similarities, True)  
   # Plot by distance
   similarities = S
-  plot_sims(u'Kuvien etäisyys d(x, y)', u'', similarities, False)
+  #plot_sims(u'Kuvien etäisyys d(x, y)', u'', similarities, False)
 
 def plot_gps_distribution(images):
   gpses = [image.gps for image in images]
@@ -82,10 +82,10 @@ def plot_gps_distribution(images):
   import pylab as pl
   fig = pl.figure()
   ax = fig.add_subplot(111)
-  code.interact(local=locals())
-  ax.scatter(lat_h, lon_h, c='b', label=u'Kaikki kuvat')
-  ax.scatter(lat150m, lon150m, c='r', label=u'Kuvat noin 150m säteellä Eduskuntatalosta')
-  
+  #code.interact(local=locals())
+  ax.scatter(lat_h, lon_h, c='b', label=u'Kaikki kuvat', s=1)
+  ax.scatter(lat150m, lon150m, c='r', label=u'Kuvat noin 150m säteellä Eduskuntatalosta', s=1)
+  #code.interact(local=locals())
   #pl.xlim(min(lat), max(lat))
   #pl.ylim(min(lon), max(lon))
   #pl.xlim(59.977005 - 0.05, 60.2891 + 0.05)
@@ -93,8 +93,8 @@ def plot_gps_distribution(images):
   pl.xlabel('Leveyspiiri')
   pl.ylabel('Pituuspiiri')
   pl.show()
-  #print min(lat), max(lat)
-  #print min(lon), max(lon)
+  print "Latitude range:", min(lat_h), max(lat_h)
+  print "Longitude range:", min(lon_h), max(lon_h)
 
 def find_time_correlated_tags(images):
   vocabulary = []
@@ -126,24 +126,3 @@ def find_time_correlated_tags(images):
   
   code.interact(local=locals())
   
-  '''hourly_tag_hists = [[0] * len(vocabulary)] * 24
-  monthly_tag_hists = [[0] * len(vocabulary)] * 12
-  for image in images:
-    hour = image.date.hour
-    month = image.date.month - 1  # 0-indexing
-    for tag, i in zip(vocabulary, range(len(vocabulary))):
-      if tag in image.tags:
-        monthly_tag_hists[month][i] += 1
-        hourly_tag_hists[hour][i] += 1
-  from sklearn.feature_extraction.text import TfidfTransformer
-  hourly_tag_hists = np.array(hourly_tag_hists).transpose()
-  monthly_tag_hists = np.array(monthly_tag_hists).transpose()
-  hourly_tfidf = TfidfTransformer().fit_transform(hourly_tag_hists)
-  monthly_tfidf = TfidfTransformer().fit_transform(monthly_tag_hists)
-  for i in range(24):
-    hourly_max = max(hourly_tfidf[i])
-    import code
-    code.interact(local=locals())
-    for j in range(hourly_tfidf.shape[0]):
-      if hourly_tfidf[i, j] == hourly_max:
-        print "max:", vocabulary[j]'''

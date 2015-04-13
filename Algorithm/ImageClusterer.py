@@ -48,10 +48,13 @@ def create_visual_codebook(images, n_codebook, n_maxfeatures, n_maxdescriptors):
   #  n_codebook = len(descriptors) / 5
   #  print "Changing n_codebook to {} ({} descriptors)".format(n_codebook, len(descriptors))
   from sklearn.cluster import MiniBatchKMeans
-  mbk = MiniBatchKMeans(init='k-means++', n_clusters=n_codebook, n_init=3, max_iter=50, max_no_improvement=3, verbose=0, compute_labels=False) # batch size?
+  mbk = MiniBatchKMeans(init='k-means++', n_clusters=n_codebook, n_init=3, max_iter=50, max_no_improvement=3, verbose=0, compute_labels=False, batch_size=50) # batch size?
   mbk.fit(descriptors)
   codebook = mbk.cluster_centers_
-  
+  '''try:
+    codebook = np.array(descriptors[:n_codebook]) # testing random clusters
+  except:
+    code.interact(local=locals())'''
   return codebook
 
 # Generates tfidf-weighted BoW vectors (histograms) for images
@@ -69,6 +72,7 @@ def generate_histograms(images, codebook):
         return y
   
   print "Generating feature histograms"
+  n_codebook = len(codebook)
   visual_features = []
   surf = cv2.SURF(400)
   for image in images:
@@ -145,6 +149,13 @@ def geo_dist_approx(latlong1, latlong2):
   #print "Dist:",dist
   return dist
 
+def common_tags(image1, image2):
+  common = []
+  for tag in image1.tags:
+    if tag in image2.tags:
+      common.append(tag)
+  return common
+  
 def image_distance((image1, vis1, tag1), (image2, vis2, tag2)):
   '''d = 1.0 / (1.0 + vis1.dot(vis2))
   if image1.metadata['owner'] == image2.metadata['owner']:
@@ -162,13 +173,24 @@ def image_distance((image1, vis1, tag1), (image2, vis2, tag2)):
       s_timetaken = 1.0
   s_geo = 0.0
   # Geographic similarity
-  if geo_dist_approx(image1.gps, image2.gps) < 200.0:
+  if geo_dist_approx(image1.gps, image2.gps) < 175.0:
     s_geo = 1.0
   # Tag similarity
   s_tag = tag1.dot(tag2)
   
   # Distance
   d = 1.0 - s_vis
+  #n_common_tags = len(common_tags(image1, image2))
+  #if n_common_tags > 0:
+  #  d -= 0.05
+  #d -= s_tag * 0.5
+  #d -= s_timetaken * 0.1
+  if s_geo == 0.0:
+    d += 100.0
+  
+  # Clamp distance to [0, 1]
+  d = max(0.0, d)
+  d = min(1.0, d)
   
   return d
 
@@ -205,14 +227,14 @@ def cluster_similarity(S):
   print "max d: {}, min d: {}".format(max(dists), min(dists))
   
   print "clustering images"
-  max_cluster_d = 0.7
-  dbs = DBSCAN(eps=max_cluster_d, metric='precomputed', min_samples=1)
+  max_cluster_d = 0.85
+  
+  dbs = DBSCAN(eps=max_cluster_d, metric='precomputed', min_samples=2)
   labels = dbs.fit_predict(S)
   print "Labels:", labels
   print "Unique: {} of {}".format(len(np.unique(labels)), S.shape[0])
   
   #ac = sklearn.cluster.AgglomerativeClustering()
-  
   
   return labels
   
@@ -270,7 +292,7 @@ def cluster_by_tags_and_gps(images, folder, n_codebook):
   if tuomiokirkko != None:
     pass #ClusteringHelpers.plot_similarities(tuomiokirkko, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses)
   
-  ClusteringHelpers.find_time_correlated_tags(images)
+  #ClusteringHelpers.find_time_correlated_tags(images)
   
   #code.interact(local=locals())
 
@@ -286,7 +308,7 @@ def main():
     images.append(Image(image_paths[i], metadata_paths[i]))
   
   # Plot distribution (GPS)
-  #plot_gps_distribution(images)
+  #ClusteringHelpers.plot_gps_distribution(images)
   
   # Start the main algorithm
   cluster_by_tags_and_gps(images, args.folder_name, n_codebook)

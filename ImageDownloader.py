@@ -68,18 +68,23 @@ def main():
 
   new_york_id = 2459115
   helsinki_id = 565346
+  rome_id = 721943
   photos = []
   months_to_dl_from = 60
   per_page = min(image_dl_count, 100)
-  for months_back in range(months_to_dl_from * 30):
+  #for months_back in range(months_to_dl_from * 30):
+  if True:
     out_of_photos = False
-    while not out_of_photos and len(photos) < image_dl_count:
-      max_taken = datetime.date.today() - datetime.timedelta(days=months_back)#months_back * 30)
-      min_taken = max_taken - datetime.timedelta(days=1)#30)
+    #while not out_of_photos and len(photos) < image_dl_count:
+    if True:
+      #max_taken = datetime.date.today() - datetime.timedelta(days=months_back)#months_back * 30)
+      #min_taken = max_taken - datetime.timedelta(days=1)#30)
       page = 0
       photos_found = 0
       while True:
-        page_photos = flickr.photos_search(woe_id=helsinki_id, has_geo=1, per_page=per_page, page=page, min_taken_date=min_taken, max_taken_date=max_taken)
+        #page_photos = flickr.photos_search(woe_id=helsinki_id, has_geo=1, per_page=per_page, page=page, min_taken_date=min_taken, max_taken_date=max_taken)
+        #page_photos = flickr.photos_search(per_page=per_page, page=page, min_taken_date=min_taken, max_taken_date=max_taken, lat=60.172538, lon=24.9333456, radius=0.2)
+        page_photos = flickr.photos_search(per_page=per_page, page=page, lat=60.172538, lon=24.9333456, radius=0.1)
         if len(page_photos) == 0:
           out_of_photos = True
           break
@@ -91,7 +96,7 @@ def main():
         #photos.extend(page_photos)
         if len(photos) >= image_dl_count:
           break
-      print "Found", photos_found, "photos between", min_taken, max_taken
+      print "Found", photos_found #, "photos between", min_taken, max_taken
   print "Found", len(photos), "photos"
   urls = []
   failed_downloads = 0

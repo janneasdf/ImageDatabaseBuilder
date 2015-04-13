@@ -5,31 +5,40 @@ import os, sys, argparse
 import shutil
 import os
 import numpy as np
-import pylab
 import code
+import pylab as pl
 
 ### Plotting ###
 def plot_image_similarities(plot_title, first_title, nearest, similarities):
-  fig = pylab.figure()
+  fig = pl.figure()
   fig.clear()
-  #pylab.title(plot_title)
+  #pl.title(plot_title)
   
-  I = pylab.imread(nearest[0].image_path)
-  #fig.add_subplot(6,5,3)
+  I = pl.imread(nearest[0].image_path)
   fig.add_subplot(4,3,2)
-  pylab.title(first_title)
-  pylab.axis('off')
-  pylab.imshow(I)
+  #fig.add_subplot(1, len(nearest)+2, 1)
+  pl.title(first_title)
+  pl.axis('off')
+  pl.imshow(I)
   
   for i in range(len(nearest)):
     image = nearest[i]
-    I = pylab.imread(image.image_path)
-    #fig.add_subplot(6,5,i+6)
+    I = pl.imread(image.image_path)
     fig.add_subplot(4,3,i+4)
-    pylab.title(str(similarities[i])[:6])
-    pylab.axis('off')
-    pylab.imshow(I)
-  pylab.show()
+    #fig.add_subplot(1, len(nearest)+2, i+3)
+    pl.title(str(similarities[i])[:6])
+    pl.axis('off')
+    pl.imshow(I)
+  pl.show()
+  
+# Mode: 'day' or 'year'
+def plot_cluster_timeline(images, cluster, mode):
+  cluster_images = [images[i] for i in cluster]
+  #sorted_images =
+  #fig = pl.figure()
+  #fig.clear()
+  
+  
 
 ### Feature saving/loading ###
 def save_features(name, features):
