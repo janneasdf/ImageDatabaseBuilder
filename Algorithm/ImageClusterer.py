@@ -173,18 +173,14 @@ def image_distance((image1, vis1, tag1), (image2, vis2, tag2)):
       s_timetaken = 1.0
   s_geo = 0.0
   # Geographic similarity
-  if geo_dist_approx(image1.gps, image2.gps) < 175.0:
+  if geo_dist_approx(image1.gps, image2.gps) < 150.0:
     s_geo = 1.0
   # Tag similarity
   s_tag = tag1.dot(tag2)
   
   # Distance
   d = 1.0 - s_vis
-  #n_common_tags = len(common_tags(image1, image2))
-  #if n_common_tags > 0:
-  #  d -= 0.05
-  #d -= s_tag * 0.5
-  #d -= s_timetaken * 0.1
+  #d = 0.0
   if s_geo == 0.0:
     d += 100.0
   
@@ -214,7 +210,7 @@ def compute_similarity(visual_tfidf, tags_tfidf, gpses, images):
   
   return S
 
-def cluster_similarity(S):
+def cluster_similarity(S, epsilon, min_pts):
   from sklearn.cluster import MeanShift, DBSCAN, KMeans, SpectralClustering
   
   # distance distribution
@@ -227,18 +223,17 @@ def cluster_similarity(S):
   print "max d: {}, min d: {}".format(max(dists), min(dists))
   
   print "clustering images"
-  max_cluster_d = 0.85
-  
-  dbs = DBSCAN(eps=max_cluster_d, metric='precomputed', min_samples=2)
+  #max_cluster_d = 0.85
+  #max_cluster_d = 0.7
+  dbs = DBSCAN(eps=epsilon, metric='precomputed', min_samples=min_pts)
   labels = dbs.fit_predict(S)
-  print "Labels:", labels
+  #print "Labels:", labels
   print "Unique: {} of {}".format(len(np.unique(labels)), S.shape[0])
   
-  #ac = sklearn.cluster.AgglomerativeClustering()
   
   return labels
   
-def cluster_by_tags_and_gps(images, folder, n_codebook):
+def cluster_by_tags_and_gps(images, folder, n_codebook, epsilon, min_pts):
   #images = images[:1000]
   # Shuffle images
   n_images = len(images)
@@ -275,8 +270,29 @@ def cluster_by_tags_and_gps(images, folder, n_codebook):
   print "Clustering views"
   #clusters = find_view_clusters(features.toarray())
   #clusters = find_view_clusters(visual_tfidf) # no tags
-  clusters = cluster_similarity(similarity_matrix)
-  ClusteringHelpers.save_clusters(images, clusters, folder + '+' + str(n_codebook))
+  clusters = cluster_similarity(similarity_matrix, epsilon, min_pts)
+  
+  # Disqualify clusters where only 1 photographer has photos
+  cluster_owners = {}
+  for cluster in clusters:
+    cluster_owners[cluster] = []
+  for i in range(len(images)):
+    cluster = clusters[i]
+    owner = images[i].metadata['owner']
+    if owner not in cluster_owners[cluster]:
+      cluster_owners[cluster].append(owner)
+  disq_clusters = []
+  for cluster in cluster_owners:
+    if len(cluster_owners[cluster]) < 2:
+      disq_clusters.append(cluster)
+  print "disq clusters:", disq_clusters
+  for i in range(len(clusters)):
+    if clusters[i] != -1:
+      if clusters[i] in disq_clusters:
+        #clusters[i] = -clusters[i]-2  # 0 -> -2, etc
+        clusters[i] += 10000 # make them easy to distinguish
+  
+  ClusteringHelpers.save_clusters(images, clusters, folder + '+' + str(n_codebook) + '+' + str(epsilon)[:4] + '+' + str(min_pts))
   
   # Plot similarities and images (really ugly code)
   eduskuntatalo = None
@@ -290,7 +306,7 @@ def cluster_by_tags_and_gps(images, folder, n_codebook):
   if eduskuntatalo != None:
     ClusteringHelpers.plot_similarities(eduskuntatalo, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses, similarity_matrix)
   if tuomiokirkko != None:
-    pass #ClusteringHelpers.plot_similarities(tuomiokirkko, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses)
+    ClusteringHelpers.plot_similarities(tuomiokirkko, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses)
   
   #ClusteringHelpers.find_time_correlated_tags(images)
   
@@ -311,7 +327,7 @@ def main():
   #ClusteringHelpers.plot_gps_distribution(images)
   
   # Start the main algorithm
-  cluster_by_tags_and_gps(images, args.folder_name, n_codebook)
+  cluster_by_tags_and_gps(images, args.folder_name, n_codebook, args.epsilon, args.min_pts)
   
 
 if __name__ == '__main__':

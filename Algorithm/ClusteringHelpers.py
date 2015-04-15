@@ -63,7 +63,7 @@ def plot_similarities(image_index, images, n_nearest, visual_tfidf, tags_tfidf, 
   #plot_sims('Laajennettujen avainsanojen samanlaisuus', ' '.join(images[image_index].extended_tags), similarities, True)  
   # Plot by distance
   similarities = S
-  #plot_sims(u'Kuvien etäisyys d(x, y)', u'', similarities, False)
+  plot_sims(u'Kuvien etäisyys d(x, y)', u'', similarities, False)
 
 def plot_gps_distribution(images):
   gpses = [image.gps for image in images]
