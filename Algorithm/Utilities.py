@@ -37,8 +37,6 @@ def plot_cluster_timeline(images, cluster, mode):
   #sorted_images =
   #fig = pl.figure()
   #fig.clear()
-  
-  
 
 ### Feature saving/loading ###
 def save_features(name, features):
@@ -117,6 +115,8 @@ def get_clustering_arguments():
   parser = argparse.ArgumentParser(description='This script clusters images of same views')
   parser.add_argument('-f', '--folder_name', help='Image folder name', required=True)
   parser.add_argument('-c', '--codebook_size', help='Visual codebook size', required=True)
+  parser.add_argument('-e', '--epsilon', help='Epsilon used for DBSCAN clustering', required=True)
+  parser.add_argument('-m', '--min_pts', help='Minimum amount of neighbours closed than epsilon for cluster core points', required=True)
   args = parser.parse_args()
   return args
 
