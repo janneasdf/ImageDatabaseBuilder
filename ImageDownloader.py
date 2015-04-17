@@ -69,6 +69,8 @@ def main():
   new_york_id = 2459115
   helsinki_id = 565346
   rome_id = 721943
+  eiffel_coords = [48.85837, 2.294481]
+  eduskunta_coords = [60.102071, 24.555601] # a little bit off for better pictures (behind eduskuntatalo)
   photos = []
   months_to_dl_from = 60
   per_page = min(image_dl_count, 100)
@@ -83,8 +85,8 @@ def main():
       photos_found = 0
       while True:
         #page_photos = flickr.photos_search(woe_id=helsinki_id, has_geo=1, per_page=per_page, page=page, min_taken_date=min_taken, max_taken_date=max_taken)
-        #page_photos = flickr.photos_search(per_page=per_page, page=page, min_taken_date=min_taken, max_taken_date=max_taken, lat=60.172538, lon=24.9333456, radius=0.2)
-        page_photos = flickr.photos_search(per_page=per_page, page=page, lat=60.172538, lon=24.9333456, radius=0.1)
+        #page_photos = flickr.photos_search(per_page=per_page, page=page, lat=eiffel_coords[0], lon=eiffel_coords[1], radius=0.1)
+        page_photos = flickr.photos_search(per_page=per_page, page=page, lat=eduskunta_coords[0], lon=eduskunta_coords[1], radius=0.15)
         if len(page_photos) == 0:
           out_of_photos = True
           break
