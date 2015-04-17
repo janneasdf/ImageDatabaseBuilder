@@ -167,22 +167,25 @@ def image_distance((image1, vis1, tag1), (image2, vis2, tag2)):
   # Visual similarity
   s_vis = vis1.dot(vis2)
   # Time taken similarity
-  s_timetaken = 0.0
+  s_time = 0.0
   if image1.metadata['owner'] == image2.metadata['owner']:
     if abs((image1.date - image2.date).total_seconds()) < 15 * 60:
-      s_timetaken = 1.0
+      s_time = 1.0
   s_geo = 0.0
   # Geographic similarity
-  if geo_dist_approx(image1.gps, image2.gps) < 150.0:
+  if geo_dist_approx(image1.gps, image2.gps) < 100.0:
     s_geo = 1.0
   # Tag similarity
   s_tag = tag1.dot(tag2)
   
+  # Coefficients for different types of similarities
+  c_vis = 0.4
+  c_tag = 0.05
+  c_time = 0.05
+  c_geo = 0.5
+  
   # Distance
-  d = 1.0 - s_vis
-  #d = 0.0
-  if s_geo == 0.0:
-    d += 100.0
+  d = 1.0 - c_vis * s_vis - c_tag * s_tag - c_time * s_time - c_geo * s_geo
   
   # Clamp distance to [0, 1]
   d = max(0.0, d)
