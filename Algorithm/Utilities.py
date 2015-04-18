@@ -9,12 +9,13 @@ import code
 import pylab as pl
 
 ### Plotting ###
-def plot_image_similarities(plot_title, first_title, nearest, similarities):
+def plot_image_similarities(plot_title, first_title, example_image, nearest, similarities):
   fig = pl.figure()
   fig.clear()
   #pl.title(plot_title)
   
-  I = pl.imread(nearest[0].image_path)
+  #I = pl.imread(nearest[0].image_path)
+  I = pl.imread(example_image.image_path)
   fig.add_subplot(4,3,2)
   #fig.add_subplot(1, len(nearest)+2, 1)
   pl.title(first_title)

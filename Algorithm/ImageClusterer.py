@@ -173,7 +173,7 @@ def image_distance((image1, vis1, tag1), (image2, vis2, tag2)):
       s_time = 1.0
   s_geo = 0.0
   # Geographic similarity
-  if geo_dist_approx(image1.gps, image2.gps) < 100.0:
+  if geo_dist_approx(image1.gps, image2.gps) < 1500.0:
     s_geo = 1.0
   # Tag similarity
   s_tag = tag1.dot(tag2)
@@ -186,6 +186,9 @@ def image_distance((image1, vis1, tag1), (image2, vis2, tag2)):
   
   # Distance
   d = 1.0 - c_vis * s_vis - c_tag * s_tag - c_time * s_time - c_geo * s_geo
+  #d = 1.0 - s_vis
+  #if s_geo == 0.0:
+  #  d = 100.0
   
   # Clamp distance to [0, 1]
   d = max(0.0, d)
@@ -228,6 +231,7 @@ def cluster_similarity(S, epsilon, min_pts):
   print "clustering images"
   #max_cluster_d = 0.85
   #max_cluster_d = 0.7
+  print "cluster params: eps={}, min_pts={}".format(epsilon, min_pts)
   dbs = DBSCAN(eps=epsilon, metric='precomputed', min_samples=min_pts)
   labels = dbs.fit_predict(S)
   #print "Labels:", labels
@@ -276,7 +280,7 @@ def cluster_by_tags_and_gps(images, folder, n_codebook, epsilon, min_pts):
   clusters = cluster_similarity(similarity_matrix, epsilon, min_pts)
   
   # Disqualify clusters where only 1 photographer has photos
-  cluster_owners = {}
+  '''cluster_owners = {}
   for cluster in clusters:
     cluster_owners[cluster] = []
   for i in range(len(images)):
@@ -293,7 +297,7 @@ def cluster_by_tags_and_gps(images, folder, n_codebook, epsilon, min_pts):
     if clusters[i] != -1:
       if clusters[i] in disq_clusters:
         #clusters[i] = -clusters[i]-2  # 0 -> -2, etc
-        clusters[i] += 10000 # make them easy to distinguish
+        clusters[i] += 10000 # make them easy to distinguish'''
   
   ClusteringHelpers.save_clusters(images, clusters, folder + '+' + str(n_codebook) + '+' + str(epsilon)[:4] + '+' + str(min_pts))
   
@@ -302,14 +306,15 @@ def cluster_by_tags_and_gps(images, folder, n_codebook, epsilon, min_pts):
   tuomiokirkko = None
   n_nearest = 9 # how many nearest hits to show
   for img, i in zip(images, range(len(images))):
-    if '15791343418_b8c738bf32_z' in img.image_path:  # image of eduskuntatalo
+    #if '15791343418_b8c738bf32_z' in img.image_path:  # image of eduskuntatalo
+    if '14607263940_3cc8305502_z' in img.image_path:
       eduskuntatalo = i
     elif '15991895575_3705685e6c_z' in img.image_path:  # helsingin tuomiokirkko
       tuomiokirkko = i
   if eduskuntatalo != None:
     ClusteringHelpers.plot_similarities(eduskuntatalo, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses, similarity_matrix)
   if tuomiokirkko != None:
-    ClusteringHelpers.plot_similarities(tuomiokirkko, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses)
+    pass #ClusteringHelpers.plot_similarities(tuomiokirkko, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses, similarity_matrix)
   
   #ClusteringHelpers.find_time_correlated_tags(images)
   

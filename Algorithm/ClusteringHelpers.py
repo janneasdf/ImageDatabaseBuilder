@@ -44,26 +44,27 @@ def save_clusters(images, labels, folder):
 
 # Plots nearest neighbors visually and then by tags and then together
 def plot_similarities(image_index, images, n_nearest, visual_tfidf, tags_tfidf, ext_tags_tfidf, gpses, S):
-  def plot_sims(plot_title, first_title, similarities, reverse):
+  def plot_sims(plot_title, first_title, image_index, similarities, reverse):
     image_similarities = zip(similarities[image_index], range(similarities.shape[1]))
     nearest_pairs = sorted(image_similarities, key=lambda p: p[0], reverse=reverse)
     nearest_pairs = nearest_pairs[:n_nearest]
     nearest_indices = [pair[1] for pair in nearest_pairs]
     nearest_images = [images[i] for i in [pair[1] for pair in nearest_pairs]]
+    example_image = images[image_index]
     nearest_sims = [pair[0] for pair in nearest_pairs]
-    Utilities.plot_image_similarities(plot_title, first_title, nearest_images, nearest_sims)
+    Utilities.plot_image_similarities(plot_title, first_title, example_image, nearest_images, nearest_sims)
   # Plot by similarity of visual features
   similarities = cosine_similarity(visual_tfidf)
-  plot_sims('Visuaalisten piirteiden samanlaisuus', '', similarities, True)  
+  plot_sims('Visuaalisten piirteiden samanlaisuus', '', image_index, similarities, True)
   # Plot by similarity of tags
   similarities = cosine_similarity(tags_tfidf)
-  #plot_sims('Avainsanojen samanlaisuus', ' '.join(images[image_index].tags), similarities, True)  
+  plot_sims('Avainsanojen samanlaisuus', ' '.join(images[image_index].tags), image_index, similarities, True)
   # Plot by similarity of extended_tags
   similarities = cosine_similarity(ext_tags_tfidf)
-  #plot_sims('Laajennettujen avainsanojen samanlaisuus', ' '.join(images[image_index].extended_tags), similarities, True)  
+  #plot_sims('Laajennettujen avainsanojen samanlaisuus', ' '.join(images[image_index].extended_tags), similarities, True)
   # Plot by distance
   similarities = S
-  plot_sims(u'Kuvien etäisyys d(x, y)', u'', similarities, False)
+  plot_sims(u'Kuvien etäisyys d(x, y)', u'', image_index, similarities, False)
 
 def plot_gps_distribution(images):
   gpses = [image.gps for image in images]
